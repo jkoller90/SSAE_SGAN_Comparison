@@ -13,6 +13,7 @@ from sklearn.metrics import accuracy_score, confusion_matrix, classification_rep
 from skimage.transform import resize
 import scipy.io
 
+import click
 import matplotlib.pyplot as plt
 import itertools
 import numpy as np
@@ -340,6 +341,10 @@ class SGAN():
         plt.figure()
         plot_confusion_matrix(cm, class_names, normalize=True, title='Normalized confusion matrix')
 
+
+    def predict_nms(self, images):
+        pass
+
     def load_wights(self):
         # load weights into new model
         self.generator.load_weights("./TMI_saved_models/TMI_gan_generator_weights.hdf5")
@@ -403,32 +408,6 @@ def load_TMI_data():
     X_test_resized = np.empty([X_test.shape[0], 32, 32, X_test.shape[3]])
     for i in range(X_test.shape[0]):
         X_test_resized[i] = resize(X_test[i], (32, 32, 3), mode='reflect')
-
-    #Plotting a sample data:
-#    r, c = 5, 5
-#    fig, axs = plt.subplots(r, c)
-#
-#    cnt = 0
-#    for i in range(r):
-#        for j in range(c):
-#            axs[i,j].imshow(X_train_resized[np.random.randint(0,6000)])
-#            axs[i,j].axis('off')
-#            cnt += 1
-#    fig.savefig("./TMI_generators_output/tmi_training_random_sample.png")
-#    plt.suptitle('Non-nuclei Training Sample - label = 1')
-#    plt.show()
-#
-#    r, c = 5, 5
-#    fig, axs = plt.subplots(r, c)
-#    cnt = 0
-#    for i in range(r):
-#        for j in range(c):
-#            axs[i,j].imshow(X_train_resized[np.random.randint(6000,8000)])
-#            axs[i,j].axis('off')
-#            cnt += 1
-#    fig.savefig("./TMI_generators_output/tmi_training_random_sample.png")
-#    plt.suptitle('Nuclei Training Sample - label = 2')
-#    plt.show()
     
     # Normalize images from [0..1] to [-1..1]
     X_train_resized = 2 * X_train_resized - 1
@@ -459,11 +438,25 @@ def train_model():
 #    plot training graph
     sgan.plot_training_history()
 
-def test_model():
-    #    evaluate the trained D model w.r.t unseen data (i.e. testing set)
-    sgan.evaluate_discriminator(X_test, y_test)
 
+
+
+
+@click.group()
+def cli():
+   pass
+
+
+@cli.command()
+@click.option('-p', '--path', 
+    type=click.Path(exists=True),
+    help="Tests the current model against a provided dataset")
+def test(path):
+    print(path)
+    os.listdir('path')
+    sgan.evaluate_discriminator(X_test, y_test)
     sgan.predict(X_test, y_test)
 
+
 if __name__ == '__main__':
-    test_model()
+    cli()
