@@ -436,8 +436,7 @@ def load_TMI_data():
 
     return X_train_resized, y_train, X_test_resized, y_test
 
-if __name__ == '__main__':
-
+def train_model():
     X_train, y_train, X_test, y_test = load_TMI_data()
 
 #    Instanciate a compiled model
@@ -460,8 +459,11 @@ if __name__ == '__main__':
 #    plot training graph
     sgan.plot_training_history()
 
-#    evaluate the trained D model w.r.t unseen data (i.e. testing set)
-
+def test_model():
+    #    evaluate the trained D model w.r.t unseen data (i.e. testing set)
     sgan.evaluate_discriminator(X_test, y_test)
 
     sgan.predict(X_test, y_test)
+
+if __name__ == '__main__':
+    test_model()
