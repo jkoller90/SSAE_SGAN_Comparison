@@ -14,12 +14,14 @@ from skimage.transform import resize
 import scipy.io
 
 import click
+import cv2
 import matplotlib.pyplot as plt
 import itertools
 import numpy as np
 import time
 import shutil
 import os
+import mmappickle
 
 # Fixing random state for reproducibility
 seed = 19680801
@@ -83,30 +85,30 @@ class SGAN():
 
         model = Sequential()
 
-        model.add(Dense(128 * 8 * 8, activation="relu", input_dim=100))
+        model.add(Dense(128 * 8 * 8, activation='relu', input_dim=100))
         
         model.add(Reshape((8, 8, 128)))
         model.add(BatchNormalization(momentum=0.8))
 
         # fractionally-strided convolution, do not confuse with deconvolution operation
         model.add(UpSampling2D())
-        model.add(Conv2D(128, kernel_size=3, padding="same"))
+        model.add(Conv2D(128, kernel_size=3, padding='same'))
         # using a bounded activation allowed the model to learn more quickly to saturate
         # and cover the color space of the training distribution
-        model.add(Activation("relu"))
+        model.add(Activation('relu'))
         model.add(BatchNormalization(momentum=0.8))
 
         #upsampling is the opposite to pooling. Repeats the rows and columns of the data
         model.add(UpSampling2D())
-        model.add(Conv2D(64, kernel_size=3, padding="same"))
-        model.add(Activation("relu"))
+        model.add(Conv2D(64, kernel_size=3, padding='same'))
+        model.add(Activation('relu'))
         model.add(BatchNormalization(momentum=0.8))
 
         #flatten to the amount of channels
-        model.add(Conv2D(self.channels, kernel_size=3, padding="same"))
-        model.add(Activation("tanh"))
+        model.add(Conv2D(self.channels, kernel_size=3, padding='same'))
+        model.add(Activation('tanh'))
         
-#        plot_path = "generator.png"
+#        plot_path = 'generator.png'
 #        plot_model(model, to_file=plot_path, show_shapes=True, show_layer_names=True)
 
         #model.summary()
@@ -126,7 +128,7 @@ class SGAN():
 
         # Create a Sequential model by simply adding layers via the .add() method
         # 32 filters, 3x3 kernel size, stride 2, input_shape is 28x28x1, same: pad so the output and input size are equal
-        model.add(Conv2D(32, kernel_size=3, strides=2, input_shape=img_shape, padding="same"))
+        model.add(Conv2D(32, kernel_size=3, strides=2, input_shape=img_shape, padding='same'))
         # f(x) = alpha * x for x < 0, f(x) = x for x >= 0.
         # Leaky rectified activation worked well, especially for higher resolution modeling.
         # This is in contrast to the original GAN paper, which used the maxout activation
@@ -134,7 +136,7 @@ class SGAN():
         # drops 25% of the input units
         model.add(Dropout(0.25))
 
-        model.add(Conv2D(64, kernel_size=3, strides=2, padding="same"))
+        model.add(Conv2D(64, kernel_size=3, strides=2, padding='same'))
         #A zero-padding layer. Adds rows and columns of zeros to the image
         model.add(ZeroPadding2D(padding=((0,1),(0,1))))
         model.add(LeakyReLU(alpha=0.2))
@@ -149,17 +151,17 @@ class SGAN():
         # Directly applying batchnorm to all layers, however, resulted in sample oscillation and model instability.
         # This was avoided by not applying batchnorm to the generator output layer and the discriminator input layer
         model.add(BatchNormalization(momentum=0.8))
-        model.add(Conv2D(128, kernel_size=3, strides=2, padding="same"))
+        model.add(Conv2D(128, kernel_size=3, strides=2, padding='same'))
         model.add(LeakyReLU(alpha=0.2))
         model.add(Dropout(0.25))
         model.add(BatchNormalization(momentum=0.8))
-        model.add(Conv2D(256, kernel_size=3, strides=1, padding="same"))
+        model.add(Conv2D(256, kernel_size=3, strides=1, padding='same'))
         model.add(LeakyReLU(alpha=0.2))
         model.add(Dropout(0.25))
 
         model.add(Flatten())
         #model.summary()
-#        plot_path = "discriminator.png"
+#        plot_path = 'discriminator.png'
 #        plot_model(model, to_file=plot_path, show_shapes=True, show_layer_names=True)
 
 
@@ -168,9 +170,9 @@ class SGAN():
         features = model(img)
 
         # valid indicates if the image is real or fake
-        valid = Dense(1, activation="sigmoid")(features)
+        valid = Dense(1, activation='sigmoid')(features)
         # iff the image is real, label indicates which type of image it is
-        label = Dense(self.num_classes+1, activation="softmax")(features)
+        label = Dense(self.num_classes+1, activation='softmax')(features)
 
         # Given an img (x)  and a label(y), instantiate a Model.
         # Once instantiated, this model will include all layers required in the computation of y given x.
@@ -180,7 +182,7 @@ class SGAN():
 
         # delete directory if exist and create it
         shutil.rmtree('TMI_generators_output', ignore_errors=True)
-        os.makedirs("TMI_generators_output")
+        os.makedirs('TMI_generators_output')
 
         half_batch = int(batch_size / 2)
 
@@ -229,12 +231,12 @@ class SGAN():
                 # Train the generator (wants discriminator to mistake images as real)
                 g_loss = self.combined.train_on_batch(noise, validity, class_weight=[cw1, cw2])
 
-            self.training_history["D_loss"].append(d_loss[0]);
-            self.training_history["D_acc"].append(100*d_loss[3]);
-            self.training_history["G_loss"].append(g_loss);
-            self.training_history["G_acc"].append(100*d_loss[4]);
+            self.training_history['D_loss'].append(d_loss[0]);
+            self.training_history['D_acc'].append(100*d_loss[3]);
+            self.training_history['G_loss'].append(g_loss);
+            self.training_history['G_acc'].append(100*d_loss[4]);
 
-            print ("%d: Training D [loss: %.4f, acc: %.2f%% ] - G [loss: %.4f, acc: %.2f%%]" % (epoch, d_loss[0], 100*d_loss[3], g_loss, 100*d_loss[4]))
+            print ('%d: Training D [loss: %.4f, acc: %.2f%% ] - G [loss: %.4f, acc: %.2f%%]' % (epoch, d_loss[0], 100*d_loss[3], g_loss, 100*d_loss[4]))
             self.evaluate_discriminator(X_test, y_test)
 
             # If at save interval => save generated image samples
@@ -250,9 +252,9 @@ class SGAN():
         #  Evaluating the trained Discriminator
         scores = self.discriminator.evaluate(X_test, [valid, labels], verbose=0)
 
-        print("Evaluating D [loss:  %.4f, bi-loss: %.4f, cat-loss: %.4f, bi-acc: %.2f%%, cat-acc: %.2f%%]\n" %
+        print('Evaluating D [loss:  %.4f, bi-loss: %.4f, cat-loss: %.4f, bi-acc: %.2f%%, cat-acc: %.2f%%]\n' %
               (scores[0], scores[1], scores[2], scores[3]*100, scores[4]*100))
-#        print("\nEvaluating D [loss:  %.4f, acc: %.2f%%]" % (scores[0], scores[3]*100))
+#        print('\nEvaluating D [loss:  %.4f, acc: %.2f%%]' % (scores[0], scores[3]*100))
 
         return (scores[0], scores[3]*100)
 
@@ -271,26 +273,26 @@ class SGAN():
                 axs[i,j].imshow(gen_imgs[cnt, :,:])
                 axs[i,j].axis('off')
                 cnt += 1
-        fig.savefig("./TMI_generators_output/tmi_%d.png" % epoch)
+        fig.savefig('./TMI_generators_output/tmi_%d.png' % epoch)
         plt.close()
 
     def save_model(self):
 
         def save(model, model_name):
-            model_path = "./TMI_saved_models/%s.json" % model_name
-            weights_path = "./TMI_saved_models/%s_weights.hdf5" % model_name
-            options = {"file_arch": model_path,
-                        "file_weight": weights_path}
+            model_path = './TMI_saved_models/%s.json' % model_name
+            weights_path = './TMI_saved_models/%s_weights.hdf5' % model_name
+            options = {'file_arch': model_path,
+                        'file_weight': weights_path}
             json_string = model.to_json()
             open(options['file_arch'], 'w').write(json_string)
             model.save_weights(options['file_weight'])
 
         shutil.rmtree('TMI_saved_models', ignore_errors=True)
-        os.makedirs("TMI_saved_models")
+        os.makedirs('TMI_saved_models')
 
-        save(self.generator, "TMI_gan_generator")
-        save(self.discriminator, "TMI_gan_discriminator")
-        save(self.combined, "TMI_gan_adversarial")
+        save(self.generator, 'TMI_gan_generator')
+        save(self.discriminator, 'TMI_gan_discriminator')
+        save(self.combined, 'TMI_gan_adversarial')
 
     def plot_training_history(self):
         fig, axs = plt.subplots(1,2,figsize=(15,5))
@@ -328,12 +330,12 @@ class SGAN():
         
         # Calculating and ploting a Classification Report
         class_names = ['Non-nunclei', 'Nuclei']
-        print("Classification report:\n %s\n"
+        print('Classification report:\n %s\n'
               % (classification_report(y_test, y_pred, target_names=class_names)))
 
         # Calculating and ploting Confusion Matrix
         cm = confusion_matrix(y_test, y_pred)
-#        print("Confusion matrix:\n%s" % cm)
+#        print('Confusion matrix:\n%s' % cm)
 
         plt.figure()
         plot_confusion_matrix(cm, class_names, title='Confusion matrix, without normalization')
@@ -341,25 +343,38 @@ class SGAN():
         plt.figure()
         plot_confusion_matrix(cm, class_names, normalize=True, title='Normalized confusion matrix')
 
+    def predict_proba(self, X_test):
+        return self.discriminator.predict(X_test)
+
+
 
     def predict_nms(self, images):
         pass
 
-    def load_wights(self):
+    def load_weights(self):
         # load weights into new model
-        self.generator.load_weights("./TMI_saved_models/TMI_gan_generator_weights.hdf5")
-        self.discriminator.load_weights("./TMI_saved_models/TMI_gan_discriminator_weights.hdf5")
-        self.combined.load_weights("./TMI_saved_models/TMI_gan_adversarial_weights.hdf5")
-        print("Weights loaded from disk")
+        self.generator.load_weights('./TMI_saved_models/TMI_gan_generator_weights.hdf5')
+        self.discriminator.load_weights('./TMI_saved_models/TMI_gan_discriminator_weights.hdf5')
+        # self.combined.load_weights('./TMI_saved_models/TMI_gan_adversarial_weights.hdf5')
+        print('Weights loaded from disk')
+
+def is_nuclei(cell):
+    if len(np.transpose(np.nonzero(cell))) == 0:
+        return False
+    p_n = np.array(np.transpose(np.nonzero(cell))[0][:2])
+    p_c = np.array([17, 17])
+    dist = np.linalg.norm(p_n - p_c)
+# #   if dist < 15 nuclei_arr.append(dist, p_n, or p_c?)
+    return dist < 17
 
 def plot_confusion_matrix(cm, classes,
                           normalize=False,
                           title='Confusion matrix',
                           cmap=plt.cm.Blues):
-    """
+    '''
     This function prints and plots the confusion matrix.
     Normalization can be applied by setting `normalize=True`.
-    """
+    '''
     if normalize:
         cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
 
@@ -374,8 +389,8 @@ def plot_confusion_matrix(cm, classes,
     thresh = cm.max() / 2.
     for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
         plt.text(j, i, format(cm[i, j], fmt),
-                 horizontalalignment="center",
-                 color="white" if cm[i, j] > thresh else "black")
+                 horizontalalignment='center',
+                 color='white' if cm[i, j] > thresh else 'black')
 
     plt.tight_layout()
     plt.ylabel('True label')
@@ -385,8 +400,11 @@ def load_TMI_data():
     # Load the dataset
     dataset = scipy.io.loadmat('TMI2015/training/training.mat')
 
+    # cv2.imshow('train_x', dataset['train_x'][0])
+    cv2.waitKey(0)
     # Split into train and test. Values are in range [0..1] as float64
     X_train = np.transpose(dataset['train_x'], (3, 0, 1, 2))
+    print(X_train.shape)
     y_train = list(dataset['train_y'][0])
     
     X_test = np.transpose(dataset['test_x'], (3, 0, 1, 2))
@@ -412,7 +430,6 @@ def load_TMI_data():
     # Normalize images from [0..1] to [-1..1]
     X_train_resized = 2 * X_train_resized - 1
     X_test_resized = 2 * X_test_resized - 1
-
     return X_train_resized, y_train, X_test_resized, y_test
 
 def train_model():
@@ -421,7 +438,7 @@ def train_model():
 #    Instanciate a compiled model
     sgan = SGAN()
 
-#    sgan.load_wights()
+#    sgan.load_weights()
 
     start = time.time()
     
@@ -430,7 +447,7 @@ def train_model():
     sgan.train(X_train, y_train, X_test, y_test, epochs, batch_size=32, save_interval=5)
 
     end = time.time()
-    print ("\nTraining time: %0.1f minutes \n" % ((end-start) / 60))
+    print ('\nTraining time: %0.1f minutes \n' % ((end-start) / 60))
 
     #saved the trained model
     sgan.save_model()
@@ -439,24 +456,197 @@ def train_model():
     sgan.plot_training_history()
 
 
+def image_for_prefix(prf):
+    base_path = prf + '.tif'
+    block_path = prf + '_block.tif'
+    cell_path = prf + '_cell.tif'
+    base_img = cv2.imread(base_path)
+    block_img = cv2.imread(block_path, cv2.IMREAD_GRAYSCALE)
+    cell_img = cv2.imread(cell_path)
+    # x, y 
+
+    block = cv2.findNonZero(block_img).squeeze()
+
+    x,y = block[0] + 3
+    x_0,y_0 = block[-1] - 2
+
+    crop = base_img[y:y_0, x:x_0]
+    cell = cell_img[y:y_0, x:x_0]
+    return crop, cell
+
+def sliding_windows(img_size, window_size, step):
+    max_x, max_y = img_size
+    w, h = window_size
+    x,y = 0,0
+    windows = []
+    for x_0 in range(x, max_x - w, step):
+        for y_0 in range(y, max_y - h, step):
+            windows.append((y_0,x_0,y_0+h,x_0+w))
+
+    return np.array(windows)
+
+def nms(windows, proba, thresh, overlap_rate):
+    pick = []
+    boxes = windows
+    # grab the coordinates of the bounding boxes
+    x1 = boxes[:,0]
+    y1 = boxes[:,1]
+    x2 = boxes[:,2]
+    y2 = boxes[:,3]
+
+    # compute the area of the bounding boxes and sort the bounding
+    # boxes by the bottom-right y-coordinate of the bounding box
+    area = (x2 - x1 + 1) * (y2 - y1 + 1)
+    # proba = proba[np.where(proba < thresh)]
+    idxs = np.argsort(proba)
+    t = proba[idxs]
+    idxs = np.delete(idxs, np.where(t < thresh)[0])
+    # keep looping while some indexes still remain in the indexes
+    # list
+    while len(idxs) > 0:
+        # grab the last index in the indexes list and add the
+        # index value to the list of picked indexes
+        last = len(idxs) - 1
+        i = idxs[last]
+        pick.append(i)
+ 
+        # find the largest (x, y) coordinates for the start of
+        # the bounding box and the smallest (x, y) coordinates
+        # for the end of the bounding box
+        xx1 = np.maximum(x1[i], x1[idxs[:last]])
+        yy1 = np.maximum(y1[i], y1[idxs[:last]])
+        xx2 = np.minimum(x2[i], x2[idxs[:last]])
+        yy2 = np.minimum(y2[i], y2[idxs[:last]])
+ 
+        # compute the width and height of the bounding box
+        w = np.maximum(0, xx2 - xx1 + 1)
+        h = np.maximum(0, yy2 - yy1 + 1)
+ 
+        # compute the ratio of overlap
+        overlap = (w * h) / area[idxs[:last]]
+ 
+        # delete all indexes from the index list that have
+        idxs = np.delete(idxs, np.concatenate(([last], np.where(overlap > overlap_rate)[0])))
+ 
+    return pick
 
 
+def prepare_patches(patches):
+    X_test = np.asarray(patches)
+    X_test_resized = np.empty([X_test.shape[0], 32, 32, X_test.shape[3]])
+    for i in range(X_test.shape[0]):
+        X_test_resized[i] = resize(X_test[i], (32, 32, 3), mode='reflect')
+    
+    # Normalize images from [0..1] to [-1..1]
+    X_test_resized = 2 * X_test_resized - 1
+    return X_test_resized
 
 @click.group()
 def cli():
    pass
 
-
 @cli.command()
 @click.option('-p', '--path', 
     type=click.Path(exists=True),
-    help="Tests the current model against a provided dataset")
-def test(path):
+    help='Tests the current model against a provided dataset')
+def test_model(path):
     print(path)
-    os.listdir('path')
-    sgan.evaluate_discriminator(X_test, y_test)
-    sgan.predict(X_test, y_test)
+    sgan = SGAN()
+    sgan.load_weights()
 
+    m = mmappickle.mmapdict(path, readonly=True)
+    all_preds = None
+    all_tests = None
+    print(m.keys())
+    for key in list(m.keys())[:10]:
+        print(key)
+        d = m[key]
+        crop = d['crop']
+        cell = d['cell']
+        print(d.keys())
+
+        windows = sliding_windows((400, 400), (34, 34), 6)
+        patches = [crop[w[0]:w[2], w[1]:w[3]] for w in windows]
+        cell_patches = [cell[w[0]:w[2], w[1]:w[3]] for w in windows]
+        y_test = np.array([is_nuclei(n) for n in cell_patches])
+        try:
+            y_proba = sgan.predict_proba(prepare_patches(patches))
+            y_proba = y_proba[1][:,:-1]
+            y_pred = np.argmax(y_proba, axis=1)
+        except Exception as e:
+            print("Erro")
+            continue
+        else:
+            pass
+        
+    #     print(np.argwhere(y_pred == 1))
+    #     return
+        nuclei_picks = nms(windows, y_proba[:,1], 0.1, 0.3)
+        print(nuclei_picks)
+    #     print("Nuclei picks")
+        non_nuclei_picks  = nms(windows, y_proba[:,0], 0.1, 0.3)
+    #     print(nuclei_picks)
+    #     print("Non nuclei picks")
+    #     print(non_nuclei_picks)
+        picks =  np.concatenate((nuclei_picks, non_nuclei_picks))
+        print(picks)
+    #     print(picks)
+        y_test = y_test[picks]
+        y_pred = y_pred[picks]
+
+        if all_preds is None:
+            all_preds = y_pred
+            all_tests = y_test
+        else:
+            all_preds = np.concatenate((all_preds, y_pred))
+            all_tests = np.concatenate((all_tests, y_test))
+
+    print ('\nOverall accuracy: %f%% \n' % (accuracy_score(all_preds, all_tests) * 100))
+    print ('\nAveP: %f%% \n' % (average_precision_score(all_preds, all_tests) * 100))
+    
+    # Calculating and ploting a Classification Report
+    class_names = ['Non-nunclei', 'Nuclei']
+    print('Classification report:\n %s\n'
+          % (classification_report(all_preds, all_tests, target_names=class_names)))
+
+    # Calculating and ploting Confusion Matrix
+    # cm = confusion_matrix(all_preds, all_tests)
+#        print('Confusion matrix:\n%s' % cm)
+
+    # plt.figure()
+    # plot_confusion_matrix(cm, class_names, title='Confusion matrix, without normalization')
+
+    # plt.figure()
+    # plot_confusion_matrix(cm, class_names, normalize=True, title='Normalized confusion matrix')
+
+
+    # sgan.evaluate_discriminator(X_test, y_test)
+    # sgan.predict(X_test, y_test)
+
+@cli.command()
+@click.option('-d', type=click.Path(exists=True),
+    help='Directory to read images from')
+@click.option('-n', type=int, default=500,
+    help='Number of images in the sample')
+@click.option('-o', 'output', default='output',
+    help='Output Folder')
+def create_dataset(d, n, output):
+    prefixes = [d + '/' + p.split('.')[0] for p in os.listdir(d) if '_' not in p and 'tif' in p]
+    prefixes = np.random.choice(prefixes, n, replace=False)
+    out_path = output + '/out'
+    if os.path.isfile(out_path):
+        os.remove(out_path)
+
+    m = mmappickle.mmapdict(out_path)
+    for prefix in prefixes:
+        crop, cells = image_for_prefix(prefix)
+        d = {
+            'crop': crop,
+            'cell': cells
+        }
+
+        key = os.path.basename(prefix)
+        m[key] = d
 
 if __name__ == '__main__':
     cli()
