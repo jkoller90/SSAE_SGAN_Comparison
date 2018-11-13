@@ -321,7 +321,7 @@ class SGAN():
 
         # Generating a predictions from the discriminator over the testing dataset
         y_pred = self.discriminator.predict(X_test)
-
+        print(y_pred[1][:,:-1])
         # Formating predictions to remove the one_hot_encoding format
         y_pred = np.argmax(y_pred[1][:,:-1], axis=1)
 
@@ -546,6 +546,20 @@ def cli():
    pass
 
 @cli.command()
+def test_predict():
+    # X_test, y_test = load_TMI_test_data()
+    X_train, y_train, X_test, y_test = load_TMI_data()
+
+    print ("Loaded test data")
+    sgan = SGAN()
+
+    sgan.load_weights()
+
+    sgan.evaluate_discriminator(X_test, y_test)
+
+    sgan.predict(X_test, y_test)
+
+@cli.command()
 @click.option('-p', '--path', 
     type=click.Path(exists=True),
     help='Tests the current model against a provided dataset')
@@ -565,20 +579,23 @@ def test_model(path):
         cell = d['cell']
         print(d.keys())
 
-        windows = sliding_windows((400, 400), (34, 34), 6)
+        windows = sliding_windows((400, 400), (34, 34), 6)[:1]
         patches = [crop[w[0]:w[2], w[1]:w[3]] for w in windows]
         cell_patches = [cell[w[0]:w[2], w[1]:w[3]] for w in windows]
         y_test = np.array([is_nuclei(n) for n in cell_patches])
         try:
             y_proba = sgan.predict_proba(prepare_patches(patches))
+            print(y_proba)
             y_proba = y_proba[1][:,:-1]
+            print(y_proba)
             y_pred = np.argmax(y_proba, axis=1)
+            print(y_pred)
         except Exception as e:
             print("Erro")
             continue
         else:
             pass
-        
+        return
     #     print(np.argwhere(y_pred == 1))
     #     return
         nuclei_picks = nms(windows, y_proba[:,1], 0.1, 0.3)
